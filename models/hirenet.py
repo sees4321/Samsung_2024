@@ -8,7 +8,8 @@ class resBlock(nn.Module):
     def __init__(self, inn, hid, k):
         super(resBlock,self).__init__()
         self.conv = nn.Sequential(
-            nn.Conv2d(inn,inn,(1,7),padding=(0,7//2)),
+            # nn.Conv2d(inn,inn,1),
+            nn.Conv2d(inn,inn,(1,k),padding=(0,k//2)),
             nn.BatchNorm2d(inn),
             nn.ELU(),
         )
@@ -34,9 +35,9 @@ class HiRENet(nn.Module):
         self.num_chan = num_chan
         self.conv_chan = conv_chan
 
-        self.layerx = resBlock(self.num_chan,self.num_chan*2,13)
+        self.layerx = resBlock(self.num_chan, self.conv_chan, 13)
         if self.withhil:
-            self.layery = resBlock(self.num_chan,self.num_chan*2,13)
+            self.layery = resBlock(self.num_chan, self.conv_chan, 13)
             self.num_chan = self.num_chan*2
 
         self.layer4 = nn.Sequential( 
@@ -53,6 +54,7 @@ class HiRENet(nn.Module):
         )
         self.fc_module = nn.Sequential(
             nn.Conv2d(self.conv_chan*2,1,(1,119)),
+            nn.Sigmoid(),
             # nn.LogSoftmax(dim=1),
         )
 

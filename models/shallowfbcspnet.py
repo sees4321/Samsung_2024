@@ -3,7 +3,7 @@ from torch import nn
 import torch.nn.functional as F
 
 class ShallowFBCSPNet(nn.Module):
-    def __init__(self, input_size, sampling_rate, n_classes, pool_mode="mean", actv_mode="elu",
+    def __init__(self, input_size, sampling_rate, n_classes=1, pool_mode="mean", actv_mode="elu",
                  batch_norm=True, batch_norm_alpha=0.1, drop_prob=0.5,
                  with_hil=True, batch_norm2=True):
         super(ShallowFBCSPNet, self).__init__()
@@ -42,8 +42,9 @@ class ShallowFBCSPNet(nn.Module):
         self.final_conv_length = (self.input_time_length - self.pool_time_length + 2*0) // self.pool_time_stride + 1
         self.classfier = nn.Sequential(
             # nn.Conv2d(self.n_filters_conv, n_classes, kernel_size=(1, self.final_conv_length), bias=True),
-            nn.Linear(self.n_filters_conv  * self.final_conv_length * n_classes, n_classes, bias=True)
+            nn.Linear(self.n_filters_conv  * self.final_conv_length * n_classes, n_classes, bias=True),
             # nn.LogSoftmax(dim=1),
+            nn.Sigmoid()
         )
         
         for module in [self.TSconv1, self.TSconv11, self.pooling1, self.drop1, self.classfier]:

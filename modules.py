@@ -12,7 +12,8 @@ class Emotion_DataModule():
 
     Args:
         path (str): path for the original data.
-        label_mode (int): 0 - valence binary classification, 1 - valence binray classification.
+        label_mode (int): 0 - using emotion self rating, 1 - using target emotion.
+        label_type (int): 0 - valence binary classification, 1 - valence binray classification.
         test_subj (int): subject number for test. 
         sample_half (bool): True - use 60 sec length time samples from the end, False - use full 120 sec length time samples. (default: True)
         channel_mode (int): 0 - use all electrode channels, 1 - use Fp(AF7, FPZ, AF8), 2 - use Central (C3, CZ, C4), 3 - Ear (Left, Right). (default: 0)
@@ -23,6 +24,7 @@ class Emotion_DataModule():
     def __init__(self, 
                  path:str, # 'D:/One_한양대학교/private object minsu/coding/data/samsung_2024/emotion'
                  label_mode:int,
+                 label_type:int,
                  test_subj:int,
                  sample_half:bool = True,
                  channel_mode:int = 0,
@@ -34,9 +36,24 @@ class Emotion_DataModule():
                  ):
         super().__init__()
 
-        # load original data
+        # load original data + label
         self.data = np.load(os.path.join(path, 'emotion_data.npy'))/1000 # (32, 9, 8, 15000) 
-        self.label = np.load(os.path.join(path, 'emotion_label.npy')) # (32, 9, 2)
+        if label_mode == 0:
+            self.label = np.load(os.path.join(path, 'emotion_label.npy')) # (32, 9, 2)
+            self.label = np.array(self.label[:, 1:, label_type] > 2, int) # (32, 8)
+        else:
+            self.label = np.load(os.path.join(path, 'emotion_label2.npy'))[:, 1:] # (32, 9)
+            if label_type == 0: # arousal
+                self.label[self.label == 1.0] = 1
+                self.label[self.label == 2.0] = 0
+                self.label[self.label == 3.0] = 1
+                self.label[self.label == 4.0] = 0
+            else: # valence
+                self.label[self.label == 1.0] = 1
+                self.label[self.label == 2.0] = 1
+                self.label[self.label == 3.0] = 0
+                self.label[self.label == 4.0] = 0
+
 
         # channel selection & sampling
         fs = 125
@@ -44,7 +61,6 @@ class Emotion_DataModule():
         self.data = self.data[:, 1:, 
                               channel_selection[channel_mode][0]:channel_selection[channel_mode][1],
                               self.data.shape[3]//2 if sample_half else 0:] # (32, 8, 8, samples)
-        self.label = np.array(self.label[:, 1:, label_mode] > 2, int) # (32, 8)
 
         # epoching
         if window_len < 60:
@@ -79,6 +95,7 @@ class Emotion_DataModule():
 def __main__():
     emotion_dataset = Emotion_DataModule('D:\One_한양대학교\private object minsu\coding\data\samsung_2024\emotion',
                                         label_mode=0, 
+                                        label_type=0, 
                                         test_subj=0, 
                                         channel_mode=1, 
                                         window_len=2, 

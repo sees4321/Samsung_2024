@@ -30,7 +30,22 @@ from collections import OrderedDict
 import numpy as np
 import pandas as pd
 
-from .utils import remove_unicode
+def remove_unicode(string):
+    """
+    Removes unicode characters in string.
+
+    Parameters
+    ----------
+    string : str
+        String from which to remove unicode characters.
+
+    Returns
+    -------
+    str
+        Input string, minus unicode characters.
+    """
+    return ''.join([val for val in string if 31 < ord(val) < 127])
+
 
 
 def etext_to_rcsv(in_file, param_file, out_file=None):

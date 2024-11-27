@@ -1,16 +1,14 @@
 import numpy as np
 import random
 import torch
-import torch.nn as nn
-import torch.optim as opt
+import torch.nn.functional as F
 
-from torch.utils.data import Dataset, DataLoader
-from tqdm import tqdm
+from torch.fft import fftn
+from torch.nn.modules.loss import _Loss
+from torch.utils.data import Dataset
 
 DEVICE = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-OPT_DICT = {'Adam':opt.Adam,
-            'AdamW':opt.AdamW,
-            'SGD':opt.SGD}
+
 
 def ManualSeed(seed:int,deterministic=False):
     # random seed 고정
@@ -52,6 +50,82 @@ class CustomDataSet(Dataset):
     
     def __len__(self):
         return len(self.y)
+
+class CustomDataSet2(Dataset):
+    # x_tensor: data
+    # y_tensor: label
+    def __init__(self, x_tensor, y_tensor, z_tensor):
+        self.x = x_tensor
+        self.y = y_tensor
+        self.z = z_tensor
+        assert self.x.size(0) == self.y.size(0)
+        assert self.x.size(0) == self.z.size(0)
+
+    def __getitem__(self, index):
+        return self.x[index], self.y[index], self.z[index]
+    
+    def __len__(self):
+        return len(self.y)
+
+class JukeboxLoss(_Loss):
+    """
+    Calculate spectral component based on the magnitude of Fast Fourier Transform (FFT).
+
+    Based on:
+        Dhariwal, et al. 'Jukebox: A generative model for music.'https://arxiv.org/abs/2005.00341
+
+    Args:
+        spatial_dims: number of spatial dimensions.
+        fft_signal_size: signal size in the transformed dimensions. See torch.fft.fftn() for more information.
+        fft_norm: {``"forward"``, ``"backward"``, ``"ortho"``} Specifies the normalization mode in the fft. See
+            torch.fft.fftn() for more information.
+
+        reduction: {``"none"``, ``"mean"``, ``"sum"``}
+            Specifies the reduction to apply to the output. Defaults to ``"mean"``.
+
+            - ``"none"``: no reduction will be applied.
+            - ``"mean"``: the sum of the output will be divided by the number of elements in the output.
+            - ``"sum"``: the output will be summed.
+    """
+
+    def __init__(
+        self,
+        spatial_dims: int,
+        fft_signal_size = None, #:tuple[int] | None = None,
+        fft_norm: str = "ortho",
+    ) -> None:
+        super().__init__()
+
+        self.spatial_dims = spatial_dims
+        self.fft_signal_size = fft_signal_size
+        self.fft_dim = tuple(range(1, spatial_dims + 2))
+        self.fft_norm = fft_norm
+
+    def forward(self, input: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+        input_amplitude = self._get_fft_amplitude(target)
+        target_amplitude = self._get_fft_amplitude(input)
+
+        # Compute distance between amplitude of frequency components
+        # See Section 3.3 from https://arxiv.org/abs/2005.00341
+        loss = F.mse_loss(target_amplitude, input_amplitude, reduction="none")
+        loss = loss.sum()
+        return loss
+
+    def _get_fft_amplitude(self, images: torch.Tensor) -> torch.Tensor:
+        """
+        Calculate the amplitude of the fourier transformations representation of the images
+
+        Args:
+            images: Images that are to undergo fftn
+
+        Returns:
+            fourier transformation amplitude
+        """
+        img_fft = fftn(images, s=self.fft_signal_size, dim=self.fft_dim, norm=self.fft_norm)
+
+        amplitude = torch.sqrt(torch.real(img_fft) ** 2 + torch.imag(img_fft) ** 2)
+
+        return amplitude
 
 class EarlyStopping:
     def __init__(self, model, patience=3, delta=0.0, mode='min', verbose=False):
@@ -118,93 +192,4 @@ class EarlyStopping:
         else:
             # Continue
             self.early_stop = False
-
-def DoTrain_bin(model:nn.Module, 
-                train_loader:DataLoader, 
-                val_loader:DataLoader, 
-                num_epoch:int, 
-                optimizer_name:str, 
-                learning_rate:str, 
-                early_stop:EarlyStopping = None,
-                min_epoch:int = 0,
-                **kwargs):
-    criterion = nn.BCELoss()
-    optimizer = OPT_DICT[optimizer_name](model.parameters(), lr=float(learning_rate))
-    tr_acc, tr_loss = [], []
-    vl_acc, vl_loss = [], []
-    tr_correct, tr_total = 0, 0
-    vl_correct, vl_total = 0, 0
-    early_stopped = False
-    # for epoch in tqdm(range(num_epoch), ncols=150):
-    for epoch in range(num_epoch):
-        model.train()
-        trn_loss = 0.0
-        for i, data in enumerate(train_loader, 0):
-            x, y = data
-            x = x.to(DEVICE)
-            y = y.to(DEVICE)
-            optimizer.zero_grad()
-            pred = torch.squeeze(model(x))
-            loss = criterion(pred, y.float())
-            loss.backward()
-            optimizer.step()
-
-            predicted = (pred > 0.5).int()
-            tr_total += y.size(0)
-            tr_correct += (predicted == y).sum().item()
-            trn_loss += loss.item()
-        tr_loss.append(round(trn_loss/len(train_loader), 4))
-        tr_acc.append(round(100 * tr_correct / tr_total, 4))
-
-        if early_stop:
-            with torch.no_grad():
-                model.eval()
-                val_loss = 0.0
-                # if epoch % 10 == 0:
-                for i, data in enumerate(val_loader, 0):
-                    x, y = data
-                    x = x.to(DEVICE)
-                    y = y.to(DEVICE)
-                    
-                    pred = torch.squeeze(model(x))
-                    predicted = (pred > 0.5).int()
-                    vl_total += y.size(0)
-                    vl_correct += (predicted == y).sum().item()
-                    loss = criterion(pred, y.float())
-                    val_loss += loss.item()
-
-                val_loss = round(val_loss/len(val_loader), 4)
-                val_acc =round(100 * vl_correct / vl_total, 4)
-                vl_loss.append(val_loss)
-                vl_acc.append(val_acc)
-
-                if epoch > min_epoch: 
-                    early_stop(val_loss, epoch)
-                if early_stop.early_stop:
-                    early_stopped = True
-                    break  
-        
-    if not early_stopped:
-        torch.save(model.state_dict(), f'best_model.pth')
-    return tr_acc, tr_loss, vl_acc, vl_loss
-
-def DoTest_bin(model:nn.Module, tst_loader:DataLoader):
-    total = 0
-    correct = 0
-    preds = np.array([])
-    targets = np.array([])
-    with torch.no_grad():
-        model.eval()
-        for x, y in tst_loader:
-            x = x.to(DEVICE)
-            y = y.to(DEVICE)
-            pred = model(x)
-            pred = torch.squeeze(pred)
-            predicted = (pred > 0.5).int()
-            correct += (predicted==y).sum().item()
-            total += y.size(0)
-            preds = np.append(preds,pred.to('cpu').numpy())
-            targets = np.append(targets,y.to('cpu').numpy())
-    acc = round(100 * correct / total, 4)
-    return acc, preds, targets
 

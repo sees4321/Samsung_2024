@@ -1,6 +1,6 @@
 import numpy as np
-import datetime
 
+from emotion_trainer import train_bin_cls, test_bin_cls
 from models.eegnet import EEGNet
 from models.hirenet import *
 from modules import Emotion_DataModule
@@ -36,12 +36,12 @@ def evaluation(h1,h2,h3):
         # model = EEGNet([2,7500], 125, 1).to(DEVICE)
         model = HiRENet(3,32).to(DEVICE)
 
-        tr_acc[subj], _ = DoTrain_bin(model, 
-                                                train_loader=train_loader, 
-                                                num_epoch=num_epochs, 
-                                                optimizer_name='Adam',
-                                                learning_rate=str(learning_rate))
-        ts_acc[subj], _, _ = DoTest_bin(model, tst_loader=test_loader)
+        tr_acc[subj], _ = train_bin_cls(model, 
+                                        train_loader=train_loader, 
+                                        num_epoch=num_epochs, 
+                                        optimizer_name='Adam',
+                                        learning_rate=str(learning_rate))
+        ts_acc[subj], _, _ = test_bin_cls(model, tst_loader=test_loader)
     return np.mean(ts_acc)
 
 

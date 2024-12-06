@@ -2,12 +2,12 @@ import datetime
 import matplotlib.pyplot as plt
 import numpy as np
 
-from emotion_trainer import train_bin_cls, test_bin_cls 
+from emotion_trainer import train_bin_cls, test_bin_cls, train_cls, test_cls
 from models.eegnet import EEGNet
 from models.shallowfbcspnet import ShallowFBCSPNet
 from models.hirenet import HiRENet, make_input
 from models.MTCA_CapsNet import MTCA_CapsNet
-from modules import Emotion_DataModule
+from modules import Emotion_DataModule, Emotion_DataModule_temp
 from utils import *
 
 seed = 2222
@@ -29,8 +29,8 @@ def main(typ, chan, n_chan):
     preds = np.zeros((num_subj,60)) # model predictions
     targets = np.zeros((num_subj,60)) # labels
     for subj in range(num_subj):                                      
-        emotion_dataset = Emotion_DataModule('D:\One_한양대학교\private object minsu\coding\data\samsung_2024\emotion',
-                                            label_mode=0, 
+        emotion_dataset = Emotion_DataModule_temp('D:\One_한양대학교\private object minsu\coding\data\samsung_2024\emotion',
+                                            # label_mode=3, 
                                             label_type=typ, 
                                             test_subj=subj, 
                                             sample_half=True,
@@ -39,20 +39,20 @@ def main(typ, chan, n_chan):
                                             overlap_len=0,
                                             num_train=28,
                                             batch_size=num_batch,
-                                            transform=make_input)
+                                            transform=expand_dim_)
         test_loader = emotion_dataset.test_loader
         val_loader = emotion_dataset.val_loader
         train_loader = emotion_dataset.train_loader
 
         # model = ShallowFBCSPNet([3,125*60], 125).to(DEVICE)
-        # model = EEGNet([n_chan,125*60], 125, 1).to(DEVICE)
-        model = HiRENet(n_chan, 16).to(DEVICE)
+        model = EEGNet([n_chan,125*60], 125, 1).to(DEVICE)
+        # model = HiRENet(n_chan, 16, 1).to(DEVICE)
         # model = MTCA_CapsNet(2, 7500).to(DEVICE)
         
         es = EarlyStopping(model, patience=5, mode='min')
         train_acc, train_loss, val_acc, val_loss = train_bin_cls(model, 
                                                                 train_loader=train_loader, 
-                                                                val_loader=val_loader,
+                                                                val_loader=test_loader,
                                                                 num_epoch=num_epochs, 
                                                                 optimizer_name='Adam',
                                                                 learning_rate=str(learning_rate),
@@ -64,11 +64,12 @@ def main(typ, chan, n_chan):
         vl_loss.append(val_loss)
 
         model.load_state_dict(torch.load('best_model.pth'))
-        test_acc, _, _ = test_bin_cls(model, tst_loader=test_loader)
+        test_acc, _, _ = test_bin_cls(model, tst_loader=val_loader)
         ts_acc.append(test_acc)
+        # ts_acc.append(val_acc[-1])
         # ts_acc[subj], preds[subj], targets[subj] = DoTest_bin(model, tst_loader=test_loader)
         # print(f'[{subj:0>2}] acc: {test_acc} %, training acc: {train_acc[-1]:.2f} %, training loss: {train_loss[-1]:.3f}')
-        # print(f'[{subj:0>2}] acc: {test_acc} %, training acc: {train_acc[es.epoch]:.2f} %, training loss: {train_loss[es.epoch]:.3f}, val acc: {val_acc[es.epoch]:.2f} %, val loss: {val_loss[es.epoch]:.3f}, es: {es.epoch}')
+        print(f'[{subj:0>2}] acc: {test_acc} %, training acc: {train_acc[es.epoch]:.2f} %, training loss: {train_loss[es.epoch]:.3f}, val acc: {val_acc[es.epoch]:.2f} %, val loss: {val_loss[es.epoch]:.3f}, es: {es.epoch}')
         # %%
         # plt.figure(figsize=(15,5))
         # plt.subplot(121)
@@ -80,12 +81,13 @@ def main(typ, chan, n_chan):
         # plt.show()
 
     print(f'avg Acc: {np.mean(ts_acc)} %')
-    print('end')
+    # print('end')
 
-# main(0,3,2)
+main(0,1,3)
+main(1,1,3)
 
-for typ in range(2):
-    for chan in range(3):
-        n_chan = 2 if chan == 2 else 3
-        main(typ, chan+1, n_chan)
+# for typ in range(2):
+#     for chan in range(3):
+#         n_chan = 2 if chan == 2 else 3
+#         main(typ, chan+1, n_chan)
 # SaveResults_mat(f'eegnet_{time}',ts_acc,preds,targets,tr_acc,tr_loss,num_batch,num_epochs,learning_rate)

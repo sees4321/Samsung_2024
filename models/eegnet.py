@@ -67,7 +67,7 @@ class EEGNet(nn.Module):
             # DepthwiseConv2D에서 채널 전체에 대해서 진행했으므로 n_out_spatial = 1
             # nn.LogSoftmax(dim=1),
             nn.Linear(self.last_inchan, self.n_classes),
-            nn.Sigmoid()
+            nn.Sigmoid() if self.n_classes == 1 else nn.LogSoftmax()
         )
 
         # weight initialization

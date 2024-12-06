@@ -28,12 +28,13 @@ class resBlock(nn.Module):
         return out
     
 class HiRENet(nn.Module):
-    def __init__(self, num_chan, conv_chan, withhil = True):
+    def __init__(self, num_chan, conv_chan, num_classes=1, withhil = True):
         super(HiRENet, self).__init__()
 
         self.withhil = withhil
         self.num_chan = num_chan
         self.conv_chan = conv_chan
+        self.num_cls = num_classes
 
         self.layerx = resBlock(self.num_chan, self.conv_chan, 13)
         if self.withhil:
@@ -52,10 +53,10 @@ class HiRENet(nn.Module):
             nn.AvgPool2d((1,13),(1,2)),
             nn.Dropout2d(0.5)
         )
+        
         self.fc_module = nn.Sequential(
-            nn.Conv2d(self.conv_chan*2,1,(1,119)),
-            nn.Sigmoid(),
-            # nn.LogSoftmax(dim=1),
+            nn.Conv2d(self.conv_chan*2,self.num_cls,(1,119)),
+            nn.Sigmoid() if self.num_cls == 1 else nn.LogSoftmax(),
         )
 
     def forward(self, x):

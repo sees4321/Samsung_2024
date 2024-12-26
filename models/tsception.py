@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-
+import numpy as np
 
 class TSception(nn.Module):
     r'''
@@ -93,7 +93,9 @@ class TSception(nn.Module):
             nn.Linear(num_S, hid_channels), 
             nn.ReLU(), 
             nn.Dropout(dropout),
-            nn.Linear(hid_channels, num_classes))
+            nn.Linear(hid_channels, num_classes),
+            nn.Sigmoid() if num_classes == 1 else nn.LogSoftmax()
+        )
 
     def conv_block(self, in_channels: int, out_channels: int, kernel: int, stride: int, pool_kernel: int) -> nn.Module:
         return nn.Sequential(
@@ -128,3 +130,8 @@ class TSception(nn.Module):
 
     def feature_dim(self):
         return self.num_S
+
+def channel_selection_(data):
+    # 0 x 1 0 x 1 0 1
+    data = data[:,:,np.array([0,3,6,2,5,7,1,4])]
+    return np.expand_dims(data[:,:,:6],-3)

@@ -71,8 +71,15 @@ class HiRENet(nn.Module):
 
 def make_input(data:np.ndarray): # 32 * 8 * 8 * 7500 => 32 * 8 * 8 * 30 * 250
     ### data shape: 32 * 7680 (32 electrode channels * 60 s samples of 128 Hz)
-    a,b,c,d = data.shape
-    dat1 = data.reshape(a,b,c,30,d//30)
+    num_axis = len(data.shape)
+    assert num_axis in [3,4], 'num_axis must be 4 or 3'
     dat2 = np.imag(hilbert(data))
-    dat2 = dat2.reshape(a,b,c,30,d//30)
-    return np.concatenate((dat1, dat2),axis=3)
+    if num_axis == 4:
+        a,b,c,d = data.shape
+        dat1 = data.reshape(a,b,c,30,d//30)
+        dat2 = dat2.reshape(a,b,c,30,d//30)
+    elif num_axis == 3:
+        b,c,d = data.shape
+        dat1 = data.reshape(b,c,30,d//30)
+        dat2 = dat2.reshape(b,c,30,d//30)
+    return np.concatenate((dat1, dat2), axis=num_axis-1)

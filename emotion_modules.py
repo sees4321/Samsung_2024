@@ -29,9 +29,10 @@ class Emotion_DataModule():
                  channel_mode:int = 0,
                  window_len:int = 60,
                  overlap_len:int = 0,
-                 num_train:int = 28,
+                 num_val:int = 2,
                  batch_size:int = 16,
-                 transform = None
+                 transform = None,
+                 subj_selection = None
                  ):
         super().__init__()
 
@@ -43,11 +44,6 @@ class Emotion_DataModule():
         elif label_mode == 2: # 3 class
             self.label = np.load(os.path.join(path, 'emotion_label.npy')) # (32, 9, 2)
             self.label = np.array(self.label[:, 1:, label_type] > 2, int) + np.array(self.label[:, 1:, label_type] > 3, int)
-        elif label_mode == 3:
-            self.label = np.load(os.path.join(path, 'emotion_label.npy'))[:,:,label_type] # (32, 9, 2)
-            self.data = self.data[self.label != 3]
-            self.label = self.label[self.label != 3]
-            self.label = np.array(self.label[:, 1:, label_type] > 3, int)
         else:
             self.label = np.load(os.path.join(path, 'emotion_label2.npy'))[:, 1:] # (32, 9)
             if label_type == 0: # arousal
@@ -60,7 +56,10 @@ class Emotion_DataModule():
                 self.label[self.label == 2.0] = 1
                 self.label[self.label == 3.0] = 0
                 self.label[self.label == 4.0] = 0
-
+        
+        if subj_selection is not None:
+            self.data = self.data[subj_selection]
+            self.label = self.label[subj_selection]
 
         # channel selection & sampling
         fs = 125
@@ -88,7 +87,7 @@ class Emotion_DataModule():
         label_torch = torch.from_numpy(self.label[test_subj]).long()
         self.test_loader = DataLoader(CustomDataSet(data_torch, label_torch), batch_size, shuffle=False)
 
-        train_subjects, val_subjects = split_subjects(test_subj, 32, num_train)
+        train_subjects, val_subjects = split_subjects(test_subj, self.data.shape[0], num_val)
 
         data_torch = torch.from_numpy(np.concatenate(self.data[train_subjects])).float()
         label_torch = torch.from_numpy(np.concatenate(self.label[train_subjects])).long()

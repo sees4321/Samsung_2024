@@ -39,7 +39,8 @@ def train_bin_cls(model:nn.Module,
             y = y.to(DEVICE)
             optimizer.zero_grad()
             pred = torch.squeeze(model(x))
-            loss = criterion(pred, torch.squeeze(y.float()))
+            if pred.ndim == 0: pred = pred.unsqueeze(0)
+            loss = criterion(pred, y.float())
             loss.backward()
             optimizer.step()
 
@@ -64,6 +65,7 @@ def train_bin_cls(model:nn.Module,
                     predicted = (pred > 0.5).int()
                     vl_total += y.size(0)
                     vl_correct += (predicted == y).sum().item()
+                    if pred.ndim == 0: pred = pred.unsqueeze(0)
                     loss = criterion(pred, y.float())
                     val_loss += loss.item()
 
@@ -95,8 +97,7 @@ def test_bin_cls(model:nn.Module, tst_loader:DataLoader):
         for x, y in tst_loader:
             x = x.to(DEVICE)
             y = y.to(DEVICE)
-            pred = model(x)
-            pred = torch.squeeze(pred)
+            pred = torch.squeeze(model(x))
             predicted = (pred > 0.5).int()
             correct += (predicted==y).sum().item()
             total += y.size(0)

@@ -20,22 +20,22 @@ def ManualSeed(seed:int,deterministic=False):
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
 
-def split_subjects(test_subject, num_subjects=32, train_size=28):
+def split_subjects(test_subject, num_subjects=32, val_size=2):
     subjects = [i for i in range(num_subjects) if i != test_subject]
     random.shuffle(subjects)
 
     train_subjects = [False]*(num_subjects)
     val_subjects = [False]*(num_subjects)
     for i, v in enumerate(subjects):
-        if i < train_size:
-            train_subjects[v] = True
-        else:
+        if i < val_size:
             val_subjects[v] = True
+        else:
+            train_subjects[v] = True
 
     return train_subjects, val_subjects
 
 def expand_dim_(data:np.ndarray):
-    return np.expand_dims(data,2)
+    return np.expand_dims(data,-3)
 
 class CustomDataSet(Dataset):
     # x_tensor: data

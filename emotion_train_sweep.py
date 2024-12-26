@@ -3,7 +3,7 @@ import numpy as np
 from emotion_trainer import train_bin_cls, test_bin_cls
 from models.eegnet import EEGNet
 from models.hirenet import *
-from modules import Emotion_DataModule
+from emotion_modules import Emotion_DataModule
 from utils import *
 
 seed = 2222

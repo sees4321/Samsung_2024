@@ -287,7 +287,7 @@ class AutoencoderKL(nn.Module):
             # return reconstruction, z_mu
             z_mu, z_sigma = self.encode(x)
             z = self.sampling(z_mu, z_sigma)
-            reconstruction = self.decode(z)
+            reconstruction = self.decode(z_mu)
             return reconstruction, z_mu, z_sigma
 
     def get_ldm_inputs(self, img):
@@ -298,3 +298,21 @@ class AutoencoderKL(nn.Module):
     def reconstruct_ldm_outputs(self, z):
         x_hat = self.decode(z)
         return x_hat
+
+class AutoencoderClassifierKL(nn.Module):
+    def __init__(self, autoencoder, input_len, emb_dim, patch_size, n_classes=1):
+        super().__init__()
+        self.ae_model = autoencoder
+
+        self.block_cls = nn.Sequential(
+            nn.Linear(input_len//patch_size*emb_dim, 500),
+            nn.ELU(),
+            nn.Linear(500, n_classes),
+            nn.Sigmoid() if n_classes == 1 else nn.LogSoftmax()
+        )
+
+    def forward(self, x:torch.Tensor):
+        _, x, _ = self.ae_model(x)
+        x = x.flatten(1)
+        x = self.block_cls(x)
+        return x

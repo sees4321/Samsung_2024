@@ -3,12 +3,15 @@ import numpy as np
 from PIL import Image as PILImage
 import torch
 from transformers import AutoProcessor, AutoModelForCausalLM
+import time
 
-cap = cv2.VideoCapture(0)
+cap = cv2.VideoCapture(1)
 # cap = cv2.VideoCapture("./florence-2-cam-main/noise.mp4")
 
 cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+# cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+# cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 960)
 
 device = "cuda:0" if torch.cuda.is_available() else "cpu"
 torch_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
@@ -17,6 +20,7 @@ torch_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
 model = AutoModelForCausalLM.from_pretrained("microsoft/Florence-2-base", torch_dtype=torch_dtype, trust_remote_code=True).to(device)
 processor = AutoProcessor.from_pretrained("microsoft/Florence-2-base", trust_remote_code=True)
 
+# torch.onnx.export(model,torch.randn(1,3,256,256),f'flor.onnx')
 
 def run_example(task_prompt, text_input=None, pil_image=None):
     if text_input is None:    
@@ -33,7 +37,8 @@ def run_example(task_prompt, text_input=None, pil_image=None):
 
 
 def draw_bboxes(image, bboxes, labels):
-
+    if labels == []:
+        return image
     for bbox, label in zip(bboxes, labels):
         x_min, y_min, x_max, y_max = map(int, bbox)
         cv2.rectangle(image, (x_min, y_min), (x_max, y_max), (0, 255, 0), 2)
@@ -42,7 +47,7 @@ def draw_bboxes(image, bboxes, labels):
 
     return image
 
-
+start = time.time()
 while True:
     ret, frame = cap.read()
 
@@ -58,8 +63,8 @@ while True:
 
     ### Caption to Phase Grounding ###
     # '<CAPTION>' / '<DETAILED_CAPTION>' / '<MORE_DETAILED_CAPTION>'
-    task_caption = '<CAPTION>'
-    # task_caption = '<MORE_DETAILED_CAPTION>'
+    # task_caption = '<CAPTION>'
+    task_caption = '<MORE_DETAILED_CAPTION>'
     result = run_example(task_prompt=task_caption, pil_image=pil_image)
     text_input = result[task_caption]
     result = run_example(task_prompt='<CAPTION_TO_PHRASE_GROUNDING>', text_input=text_input, pil_image=pil_image)
@@ -68,6 +73,7 @@ while True:
 
     bboxes = result['<CAPTION_TO_PHRASE_GROUNDING>']['bboxes']
     labels = result['<CAPTION_TO_PHRASE_GROUNDING>']['labels']
+    # print(labels, time.time() - start)
     print(labels)
     # print(result[task_caption])
 

@@ -6,6 +6,7 @@ from emotion_trainer import train_bin_cls, test_bin_cls, train_cls, test_cls
 from models.eegnet import EEGNet
 from models.shallowfbcspnet import ShallowFBCSPNet
 from models.hirenet import HiRENet, make_input
+from models.deep4net import Deep4Net
 from models.MTCA_CapsNet import MTCA_CapsNet
 from nback_modules import NBack_DataModule
 from torchmetrics.classification import BinaryConfusionMatrix
@@ -16,7 +17,9 @@ ManualSeed(seed)
 
 def train(chan_mode):
     fs = 125
-    learning_rate = 5e-4
+    window_len = 6
+    overlap_len = 0
+    learning_rate = 7e-4 #7e4
     num_batch = 32
     num_epochs = 100
     min_epochs = 25
@@ -25,12 +28,13 @@ def train(chan_mode):
     dataset = NBack_DataModule("D:\One_한양대학교\private object minsu\coding\data\samsung_2024\\nback_segmented_v3",
                                chan_mode=chan_mode,
                                fs=fs,
-                               epoch_len=6,
-                               overlap_len=0,
-                               rejection=False,
+                               window_len=window_len,
+                               overlap_len=overlap_len,
+                               rejection=True,
                                num_val=3,
                                batch_size=num_batch,
-                               transform=expand_dim_,)
+                               transform=None
+                               )
 
     tr_acc = []
     tr_loss = []
@@ -44,12 +48,14 @@ def train(chan_mode):
     
     for subj, data_loaders in enumerate(dataset):
         train_loader, val_loader, test_loader = data_loaders
-        # model = ShallowFBCSPNet([3,125*60], 125).to(DEVICE)
-        model = EEGNet(dataset.data_shape, fs, 1).to(DEVICE)
+
+        # model = Deep4Net(dataset.data_shape, 1).to(DEVICE)
+        # model = ShallowFBCSPNet(dataset.data_shape, 125, 1, 'mean').to(DEVICE)
+        # model = EEGNet(dataset.data_shape, fs, 1).to(DEVICE)
         # model = HiRENet(n_chan, 16, 1).to(DEVICE)
-        # model = MTCA_CapsNet(2, 7500).to(DEVICE)
+        model = MTCA_CapsNet(dataset.data_shape[0], dataset.data_shape[1], 8, 9, 1).to(DEVICE)
         
-        es = EarlyStopping(model, patience=5, mode='min')
+        es = EarlyStopping(model, patience=20, mode='min')
         train_acc, train_loss, val_acc, val_loss = train_bin_cls(model, 
                                                                 train_loader=train_loader, 
                                                                 val_loader=val_loader,

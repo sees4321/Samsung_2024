@@ -18,14 +18,14 @@ ManualSeed(seed)
 
 
 def main(typ, chan, n_chan):
-    # h = np.array([6, 4, 4, 4, 6, 6, 4, 3, 0, 0, 6, 8, 6, 4, 3, 4, 2, 2, 4, 4, 1, 2, 4, 3, 3, 2, 6, 1, 5, 3, 3, 2], int)
-    # h = h > 1
-    # num_subj = sum(h)
-    num_subj = 32
+    h = np.array([6, 4, 4, 4, 6, 6, 4, 3, 0, 0, 6, 8, 6, 4, 3, 4, 2, 2, 4, 4, 1, 2, 4, 3, 3, 2, 6, 1, 5, 3, 3, 2], int)
+    h = h > 1
+    num_subj = sum(h)
+    # num_subj = 32
     learning_rate = 1e-3
     num_batch = 32
     num_epochs = 100
-    min_epochs = 25
+    min_epochs = 15
     time = datetime.datetime.now().strftime('%m%d_%H%M')
 
     tr_acc = []
@@ -40,7 +40,7 @@ def main(typ, chan, n_chan):
     
     for subj in range(num_subj):
         emotion_dataset = Emotion_DataModule('D:\One_한양대학교\private object minsu\coding\data\samsung_2024\emotion',
-                                            label_mode=1, 
+                                            label_mode=0, 
                                             label_type=typ, 
                                             test_subj=subj, 
                                             sample_half=True,
@@ -49,20 +49,20 @@ def main(typ, chan, n_chan):
                                             overlap_len=0,
                                             num_val=2,
                                             batch_size=num_batch,
-                                            transform=channel_selection_,)
-                                            #subj_selection=h)
+                                            transform=expand_dim_,
+                                            subj_selection=h)
         test_loader = emotion_dataset.test_loader
         val_loader = emotion_dataset.val_loader
         train_loader = emotion_dataset.train_loader
 
-        model = TSception(6).to(DEVICE)
-        # model = Deep4Net([n_chan, 125*60],1,'max').to(DEVICE)
+        # model = TSception(6).to(DEVICE)
+        model = Deep4Net([n_chan, 125*60],1,'mean').to(DEVICE)
         # model = ShallowFBCSPNet([n_chan, 125*60], 125).to(DEVICE)
         # model = EEGNet([n_chan, 125*60], 125, 1).to(DEVICE)
         # model = HiRENet(n_chan, 16, 1).to(DEVICE)
         # model = MTCA_CapsNet(2, 7500).to(DEVICE)
         
-        es = EarlyStopping(model, patience=5, mode='min')
+        es = EarlyStopping(model, patience=10, mode='min')
         train_acc, train_loss, val_acc, val_loss = train_bin_cls(model, 
                                                                 train_loader=train_loader, 
                                                                 val_loader=val_loader,
@@ -105,13 +105,13 @@ def main(typ, chan, n_chan):
 
 #type chan n_chan
 #a0 v1 / 0full, 123 / 8 3 3 2
-# for v in [[1,3],[2,3],[3,2]]:
-#     main(0,v[0],v[1])
-#     main(1,v[0],v[1])
-#     print()
+for v in [[1,3],[2,3],[3,2]]:
+    main(0,v[0],v[1])
+    main(1,v[0],v[1])
+    print()
 
-main(0,0,8)
-main(1,0,8)
+# main(0,0,8)
+# main(1,0,8)
 
 # main(0,1,3)
 # main(1,1,3)

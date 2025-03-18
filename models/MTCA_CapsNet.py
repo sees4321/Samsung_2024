@@ -94,7 +94,9 @@ class PrimaryCapsule(nn.Module):
 
     def forward(self, x):
         outputs = self.conv2d(x)
+        # print(outputs.shape)
         outputs = outputs.view(x.size(0), -1, self.dim_caps)
+        # print(outputs.shape)
         return squash(outputs)
 
 class MTCA_CapsNet(nn.Module):
@@ -113,7 +115,7 @@ class MTCA_CapsNet(nn.Module):
         self.sigmoid = nn.Sigmoid()
 
         self.conv_first = nn.Sequential(
-            nn.Conv2d(1,16,(1,kernel_caps),2),
+            nn.Conv2d(1,16,(1,kernel_caps),(1,2)),
             nn.ELU(),
             nn.AvgPool2d((1,2),(1,2))
         )
@@ -121,7 +123,8 @@ class MTCA_CapsNet(nn.Module):
         self.primarycaps = PrimaryCapsule(16,16,num_caps,kernel_caps)
         # 3923968 256
         # 
-        self.digitcaps = DenseCapsule(3730,num_caps,16,16)
+        in_num_cap = ((time_samples - kernel_caps + 1) // 4 - kernel_caps + 1) * 2 * elecrode_chan
+        self.digitcaps = DenseCapsule(in_num_cap,num_caps,16,16)
 
         self.fc = nn.Sequential(
             nn.Conv1d(16,num_classes,16),
@@ -133,10 +136,11 @@ class MTCA_CapsNet(nn.Module):
         # input_size: 32 x 7680
         mx = self.max_pool(x)
         av = self.avg_pool(x)
-        chan_attn = self.chan_linear(mx.squeeze()) + self.chan_linear(av.squeeze())
+        chan_attn = self.chan_linear(mx.squeeze(-1)) + self.chan_linear(av.squeeze(-1))
         chan_attn = self.sigmoid(chan_attn)
         x = x * chan_attn.unsqueeze(2)
 
+        # print(x.shape)
         x = self.conv_first(x.unsqueeze(1))
         # print(x.shape)
         x = self.primarycaps(x) # 16 * 7664

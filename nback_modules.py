@@ -13,7 +13,7 @@ class NBack_DataModule():
         path (str): path for the original data.
         chan_mode (int): 0 - use all electrode channels, 1 - use Fp(AF7, FPZ, AF8), 2 - use Central (C3, CZ, C4), 3 - Ear (Left, Right).
         fs (int): sampling frequency. (default: 125)
-        epoch_len (int): window length in seconds for epoching. (default: 5)
+        window_len (int): window length in seconds for epoching. (default: 5)
         overlap_len (int): overlap length in seconds for epoching. (default: 0)
         rejection (bool): perform 100 uV rejection (default: True)
         num_val (int): number of subjects for validation. (default: 3)
@@ -21,10 +21,10 @@ class NBack_DataModule():
         transform (function): transform function for the data (default: None)
     '''
     def __init__(self, 
-                 path:str, # 'D:/One_한양대학교/private object minsu/coding/data/samsung_2024/emotion'
+                 path:str, 
                  chan_mode:int,
                  fs:int = 125,
-                 epoch_len:int = 5,
+                 window_len:int = 5,
                  overlap_len:int = 0,
                  rejection:bool = True,
                  num_val:int = 3,
@@ -35,7 +35,7 @@ class NBack_DataModule():
 
         chan_selection = [[0,8],[0,3],[3,6],[6,8]]
         nback = [0,2]
-        epoch_len *= fs
+        window_len *= fs
         overlap_len *= fs
         self.batch_size = batch_size
         self.num_val = num_val
@@ -53,10 +53,11 @@ class NBack_DataModule():
                 iteration += 1
                 # data.append(np.load(os.path.join(path_folder, path_dat)))
                 dat = np.load(os.path.join(path_folder, path_dat))[chan_selection[chan_mode][0]:chan_selection[chan_mode][1]]
-                assert dat.shape[-1] >= epoch_len, 'there is data that is shorter than designated epoch length'
+                # print(dat.shape[-1])
+                assert dat.shape[-1] >= window_len, 'there is data that is shorter than designated epoch length'
 
-                for t in range(dat.shape[1] - epoch_len, 0, -(epoch_len-overlap_len)):
-                    temp = dat[:,t:t+epoch_len]
+                for t in range(dat.shape[1] - window_len, 0, -(window_len-overlap_len)):
+                    temp = dat[:,t:t+window_len]
                     if rejection:
                         if np.max(abs(temp)) <= 100:
                             data_subj.append(temp)
@@ -116,15 +117,17 @@ class NBack_DataModule():
 
 if __name__ == "__main__":
     from utils import expand_dim_
+
     dataset = NBack_DataModule("D:\One_한양대학교\private object minsu\coding\data\samsung_2024\\nback_segmented_v3",
-                               chan_mode=1,
+                               chan_mode=0,
                                fs=125,
-                               epoch_len=5,
+                               window_len=6,
                                overlap_len=0,
-                               rejection=True,
-                               num_val=2,
+                               rejection=False,
+                               num_val=3,
                                batch_size=16,
-                               transform=expand_dim_,)
+                               transform=None
+                               )
     print(dataset.data_shape)
     for train_loader, val_loader, test_loader in dataset:
         print(len(train_loader), len(val_loader), len(test_loader))

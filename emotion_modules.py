@@ -12,7 +12,7 @@ class Emotion_DataModule():
     Args:
         path (str): path for the original data.
         label_mode (int): 0 - using emotion self rating, 1 - using target emotion.
-        label_type (int): 0 - valence binary classification, 1 - valence binray classification.
+        label_type (int): 0 - arousal binary classification, 1 - valence binray classification.
         test_subj (int): subject number for test. 
         sample_half (bool): True - use 60 sec length time samples from the end, False - use full 120 sec length time samples. (default: True)
         channel_mode (int): 0 - use all electrode channels, 1 - use Fp(AF7, FPZ, AF8), 2 - use Central (C3, CZ, C4), 3 - Ear (Left, Right). (default: 0)
@@ -81,6 +81,7 @@ class Emotion_DataModule():
         
         if transform:
             self.data = transform(self.data)
+        self.data_shape = [self.data.shape[-2], self.data.shape[-1]]
 
         # train-val-test split
         data_torch = torch.from_numpy(self.data[test_subj]).float()

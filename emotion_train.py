@@ -7,7 +7,8 @@ from models.tsception import TSception, channel_selection_
 from models.eegnet import EEGNet
 from models.deep4net import Deep4Net
 from models.shallowfbcspnet import ShallowFBCSPNet
-from models.hirenet import HiRENet, make_input
+from models.syncnet2 import SyncNet2, SyncNet3
+from models.hirenet import HiRENet, make_input, HiRENet_2, make_input_2
 from models.MTCA_CapsNet import MTCA_CapsNet
 from emotion_modules import Emotion_DataModule, Emotion_DataModule_temp
 from torchmetrics.classification import BinaryConfusionMatrix
@@ -18,14 +19,14 @@ ManualSeed(seed)
 
 
 def main(typ, chan, n_chan):
-    h = np.array([6, 4, 4, 4, 6, 6, 4, 3, 0, 0, 6, 8, 6, 4, 3, 4, 2, 2, 4, 4, 1, 2, 4, 3, 3, 2, 6, 1, 5, 3, 3, 2], int)
-    h = h > 1
-    num_subj = sum(h)
-    # num_subj = 32
-    learning_rate = 1e-3
-    num_batch = 32
-    num_epochs = 100
-    min_epochs = 15
+    # h = np.array([6, 4, 4, 4, 6, 6, 4, 3, 0, 0, 6, 8, 6, 4, 3, 4, 2, 2, 4, 4, 1, 2, 4, 3, 3, 2, 6, 1, 5, 3, 3, 2], int)
+    # h = h > 1
+    # num_subj = sum(h)
+    num_subj = 32
+    learning_rate = 5e-4
+    num_batch = 16
+    num_epochs = 51
+    min_epochs = 50
     time = datetime.datetime.now().strftime('%m%d_%H%M')
 
     tr_acc = []
@@ -40,27 +41,39 @@ def main(typ, chan, n_chan):
     
     for subj in range(num_subj):
         emotion_dataset = Emotion_DataModule('D:\One_한양대학교\private object minsu\coding\data\samsung_2024\emotion',
-                                            label_mode=0, 
+                                            label_mode=1, 
                                             label_type=typ, 
                                             test_subj=subj, 
                                             sample_half=True,
                                             channel_mode=chan,
-                                            window_len=60,
+                                            window_len=10,
                                             overlap_len=0,
                                             num_val=2,
                                             batch_size=num_batch,
-                                            transform=expand_dim_,
-                                            subj_selection=h)
+                                            transform=make_input_2,
+                                            subj_selection=None)
         test_loader = emotion_dataset.test_loader
         val_loader = emotion_dataset.val_loader
         train_loader = emotion_dataset.train_loader
 
         # model = TSception(6).to(DEVICE)
-        model = Deep4Net([n_chan, 125*60],1,'mean').to(DEVICE)
+        # model = Deep4Net([n_chan, 125*15],1,'mean').to(DEVICE)
         # model = ShallowFBCSPNet([n_chan, 125*60], 125).to(DEVICE)
         # model = EEGNet([n_chan, 125*60], 125, 1).to(DEVICE)
         # model = HiRENet(n_chan, 16, 1).to(DEVICE)
         # model = MTCA_CapsNet(2, 7500).to(DEVICE)
+        model = HiRENet_2([n_chan, 1250], 32).to(DEVICE)
+        # model = SyncNet3(emotion_dataset.data_shape, 
+        #                  data_mode=1,
+        #                 num_segments=12,
+        #                 embed_dim=256,
+        #                 num_heads=4,
+        #                 num_layers=2,
+        #                 use_lstm=False,
+        #                 num_groups=4,
+        #                 actv_mode="elu",
+        #                 pool_mode="mean", 
+        #                 num_classes=1).to(DEVICE)
         
         es = EarlyStopping(model, patience=10, mode='min')
         train_acc, train_loss, val_acc, val_loss = train_bin_cls(model, 

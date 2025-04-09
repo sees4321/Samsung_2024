@@ -79,10 +79,10 @@ class EEG_Temporal_Encoder(nn.Module):
             act(),
             # nn.BatchNorm3d(out_dim),
             nn.GroupNorm(groups, out_dim),
-            # pool(kernel_size=(1, 1, 2), stride=(1, 1, 2)),
+            pool(kernel_size=(1, 1, 5), stride=(1, 1, 5)),
         )
         self.chan_attn = ChannelAttention(in_channels)
-        self.embedding = nn.Linear(out_dim*in_size, emb_dim)
+        self.embedding = nn.Linear(out_dim*in_size//5, emb_dim)
 
     def forward(self, x:torch.Tensor):
         x = x.unsqueeze(1) # (batch, 1, num_segments, channels, segment_length) 

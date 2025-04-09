@@ -14,19 +14,16 @@ from emotion_modules import Emotion_DataModule, Emotion_DataModule_temp
 from torchmetrics.classification import BinaryConfusionMatrix
 from utils import *
 
-seed = 2222
-ManualSeed(seed)
-
-
 def main(typ, chan, n_chan):
+    ManualSeed(0)
     # h = np.array([6, 4, 4, 4, 6, 6, 4, 3, 0, 0, 6, 8, 6, 4, 3, 4, 2, 2, 4, 4, 1, 2, 4, 3, 3, 2, 6, 1, 5, 3, 3, 2], int)
     # h = h > 1
     # num_subj = sum(h)
     num_subj = 32
     learning_rate = 5e-4
     num_batch = 16
-    num_epochs = 51
-    min_epochs = 50
+    num_epochs = 30
+    min_epochs = num_epochs
     time = datetime.datetime.now().strftime('%m%d_%H%M')
 
     tr_acc = []
@@ -46,11 +43,11 @@ def main(typ, chan, n_chan):
                                             test_subj=subj, 
                                             sample_half=True,
                                             channel_mode=chan,
-                                            window_len=10,
+                                            window_len=60,
                                             overlap_len=0,
-                                            num_val=2,
+                                            num_val=0,
                                             batch_size=num_batch,
-                                            transform=make_input_2,
+                                            transform=None,
                                             subj_selection=None)
         test_loader = emotion_dataset.test_loader
         val_loader = emotion_dataset.val_loader
@@ -62,27 +59,27 @@ def main(typ, chan, n_chan):
         # model = EEGNet([n_chan, 125*60], 125, 1).to(DEVICE)
         # model = HiRENet(n_chan, 16, 1).to(DEVICE)
         # model = MTCA_CapsNet(2, 7500).to(DEVICE)
-        model = HiRENet_2([n_chan, 1250], 32).to(DEVICE)
-        # model = SyncNet3(emotion_dataset.data_shape, 
-        #                  data_mode=1,
-        #                 num_segments=12,
-        #                 embed_dim=256,
-        #                 num_heads=4,
-        #                 num_layers=2,
-        #                 use_lstm=False,
-        #                 num_groups=4,
-        #                 actv_mode="elu",
-        #                 pool_mode="mean", 
-        #                 num_classes=1).to(DEVICE)
+        # model = HiRENet_2([n_chan, 1250], 32).to(DEVICE)
+        model = SyncNet3(emotion_dataset.data_shape, 
+                        data_mode=1,
+                        num_segments=12,
+                        embed_dim=256,
+                        num_heads=4,
+                        num_layers=2,
+                        use_lstm=False,
+                        num_groups=4,
+                        actv_mode="elu",
+                        pool_mode="mean", 
+                        num_classes=1).to(DEVICE)
         
-        es = EarlyStopping(model, patience=10, mode='min')
+        # es = EarlyStopping(model, patience=10, mode='min')
         train_acc, train_loss, val_acc, val_loss = train_bin_cls(model, 
                                                                 train_loader=train_loader, 
                                                                 val_loader=val_loader,
                                                                 num_epoch=num_epochs, 
                                                                 optimizer_name='Adam',
                                                                 learning_rate=str(learning_rate),
-                                                                early_stop=es,
+                                                                early_stop=None,
                                                                 min_epoch=min_epochs)
         tr_acc.append(train_acc)
         tr_loss.append(train_loss)
@@ -99,17 +96,8 @@ def main(typ, chan, n_chan):
         ts_spc.append(cf[0,0]/(cf[0,0]+cf[0,1]))
         # ts_acc.append(val_acc[-1])
         # ts_acc[subj], preds[subj], targets[subj] = DoTest_bin(model, tst_loader=test_loader)
-        # print(f'[{subj:0>2}] acc: {test_acc} %, training acc: {train_acc[-1]:.2f} %, training loss: {train_loss[-1]:.3f}')
-        print(f'[{subj:0>2}] acc: {test_acc} %, training acc: {train_acc[es.epoch]:.2f} %, training loss: {train_loss[es.epoch]:.3f}, val acc: {val_acc[es.epoch]:.2f} %, val loss: {val_loss[es.epoch]:.3f}, es: {es.epoch}')
-        # %%
-        # plt.figure(figsize=(15,5))
-        # plt.subplot(121)
-        # plt.plot(train_acc)
-        # plt.plot(val_acc)
-        # plt.subplot(122)
-        # plt.plot(train_loss)
-        # plt.plot(val_loss)
-        # plt.show()
+        print(f'[{subj:0>2}] acc: {test_acc} %, training acc: {train_acc[-1]:.2f} %, training loss: {train_loss[-1]:.3f}')
+        # print(f'[{subj:0>2}] acc: {test_acc} %, training acc: {train_acc[es.epoch]:.2f} %, training loss: {train_loss[es.epoch]:.3f}, val acc: {val_acc[es.epoch]:.2f} %, val loss: {val_loss[es.epoch]:.3f}, es: {es.epoch}')
 
     # print(f'avg Acc: {np.mean(ts_acc)} %')
     print(f'avg Acc: {np.mean(ts_acc):.2f} %, std: {np.std(ts_acc):.2f}, sen: {np.mean(ts_sen)*100:.2f}, spc: {np.mean(ts_spc)*100:.2f}')

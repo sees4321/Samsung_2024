@@ -93,10 +93,13 @@ class Emotion_DataModule():
         data_torch = torch.from_numpy(np.concatenate(self.data[train_subjects])).float()
         label_torch = torch.from_numpy(np.concatenate(self.label[train_subjects])).long()
         self.train_loader = DataLoader(CustomDataSet(data_torch, label_torch), batch_size, shuffle=False)
-
-        data_torch = torch.from_numpy(np.concatenate(self.data[val_subjects])).float()
-        label_torch = torch.from_numpy(np.concatenate(self.label[val_subjects])).long()
-        self.val_loader = DataLoader(CustomDataSet(data_torch, label_torch), batch_size, shuffle=True)
+        
+        if sum(val_subjects) > 0:
+            data_torch = torch.from_numpy(np.concatenate(self.data[val_subjects])).float()
+            label_torch = torch.from_numpy(np.concatenate(self.label[val_subjects])).long()
+            self.val_loader = DataLoader(CustomDataSet(data_torch, label_torch), batch_size, shuffle=True)
+        else:
+            self.val_loader = None
         
 class Emotion_DataModule_temp():
     r'''

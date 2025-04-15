@@ -12,15 +12,23 @@ def Normalize(in_channels, num_groups=32):
     return nn.GroupNorm(num_groups=num_groups, num_channels=in_channels, eps=1e-6, affine=True)
 
 class Upsample(nn.Module):
-    def __init__(self, in_channels):
+    def __init__(self, in_channels, pad=False):
         super().__init__()
-        self.conv = nn.Conv1d(
-            in_channels, in_channels, kernel_size=3, stride=1, padding=1
+        # self.conv = nn.Conv1d(
+        #     in_channels, in_channels, kernel_size=3, stride=1, padding=1
+        # )
+        self.pad = pad
+        self.conv = nn.ConvTranspose1d(
+            in_channels, in_channels, kernel_size=3, stride=2, padding=1, output_padding=1,
         )
 
     def forward(self, x):
-        x = F.interpolate(x, scale_factor=2.0, mode="nearest")
+        # x = F.interpolate(x, scale_factor=2.0, mode="nearest")
+        # print(f'Before: {x.shape}')
         x = self.conv(x)
+        if self.pad:
+            x = F.pad(x, (0,1), mode='replicate')
+        # print(f'After: {x.shape}')
         return x
 
 
@@ -33,7 +41,8 @@ class Downsample(nn.Module):
 
     def forward(self, x):
         pad = (0, 1)
-        x = F.pad(x, pad, mode="constant", value=0)
+        # x = F.pad(x, pad, mode="constant", value=0)
+        x = F.pad(x, pad, mode="replicate")
         x = self.conv(x)
         return x
 
@@ -205,7 +214,10 @@ class Decoder(nn.Module):
                     blocks.append(AttnBlock(block_in_ch))
 
             if i != 0:
-                blocks.append(Upsample(block_in_ch))
+                if i == 1:
+                    blocks.append(Upsample(block_in_ch, True))
+                else:
+                    blocks.append(Upsample(block_in_ch))
                 curr_res = tuple(ti * 2 for ti in curr_res)
 
         blocks.append(Normalize(block_in_ch))
@@ -316,3 +328,10 @@ class AutoencoderClassifierKL(nn.Module):
         x = x.flatten(1)
         x = self.block_cls(x)
         return x
+    
+
+if __name__ == "__main__":
+    model = AutoencoderKL(128, 2, 32, 16, 8)
+    x = torch.randn((64,2,625))
+    out = model(x)
+    print(x.shape,out[0].shape)

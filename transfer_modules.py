@@ -111,13 +111,87 @@ class Transfer_DataModule():
         
         self.data = EEGDataset(self.data)
         self.dataloader = DataLoader(self.data, batch_size=batch_size, collate_fn=collate_fn)
+
+
+class Transfer_DataModule_2():
+    r'''
+    Create nback dataset for leave-one-subject-out cross-validation
+
+    Args:
+        path (str): path for the original data.
+        stress (bool): load stress data (bool)
+        emotion (bool): load emotion data (bool)
+        d2 (bool): load d2 data (bool)
+        chan_mode (int): 0 - use all electrode channels, 1 - use Fp(AF7, FPZ, AF8), 2 - use Central (C3, CZ, C4), 3 - Ear (Left, Right).
+        fs (int): sampling frequency. (default: 125)
+        window_len (int): window length in seconds for epoching. (default: 5)
+        num_val (int): number of subjects for validation. (default: 3)
+        batch_size (int): batch size of the dataloader. (default: 16)
+        transform (function): transform function for the data (default: None)
+    '''
+    def __init__(self, 
+                 path:str,# ='D:\One_한양대학교\private object minsu\coding\data\samsung_2024'
+                 stress:bool,
+                 emotion:bool,
+                 d2:bool,
+                 chan_mode:int,
+                 fs:int=125,
+                 window_len:int = 5,
+                 batch_size:int = 16,
+                 ):
+        super().__init__()
+
+        fs = 125
+        chan_selection = [[0,8],[0,3],[3,6],[6,8]]
+        self.window_len = fs * window_len
+        self.chan = chan_selection[chan_mode]
+        self.num_chan = self.chan[1] - self.chan[0]
+        self.batch_size = batch_size
+        self.data = np.empty((0, self.num_chan, self.window_len))
+
+        # stress
+        if stress:
+            dat = np.load(path+'/mist/mist.npz')
+            self.data = np.vstack((self.data, self.window_slicing(np.concatenate(dat['eeg'])[:,self.chan[0]:self.chan[1]]))) # (31, 2, 8, 7500)
+            self.data = np.vstack((self.data, self.window_slicing(dat['eeg_med'])[:,self.chan[0]:self.chan[1]])) # (31, 8, 41250)
+            self.data = np.vstack((self.data, self.window_slicing(np.concatenate(dat['eeg_task'])[:,self.chan[0]:self.chan[1]]))) # (31, 2, 8, 18750)
+            self.data = np.vstack((self.data, self.window_slicing(dat['eeg_resting'])[:,self.chan[0]:self.chan[1]])) # (31, 8, 26250)
+
+        # emotion
+        if emotion:
+            dat = np.load(path+'/emotion/emotion.npz')
+            self.data = np.vstack((self.data, self.window_slicing(np.concatenate(dat['eeg'])[:,self.chan[0]:self.chan[1]]))) # (31, 8, 8, 15000)
+            self.data = np.vstack((self.data, self.window_slicing(np.concatenate(dat['eeg_washoff'])[:,self.chan[0]:self.chan[1]]))) # (31, 8, 8, 3750)
+            self.data = np.vstack((self.data, self.window_slicing(np.concatenate(dat['eeg_resting'])[:,self.chan[0]:self.chan[1]]))) # (31, 2, 8, 7500)
+
+        
+        # d2
+        if d2:
+            dat = np.load(f'{path}/d2_2/d2_{window_len}.npy')
+            self.data = np.vstack((self.data, dat[:,self.chan[0]:self.chan[1]]))
+        
+        self.data = torch.from_numpy(self.data).float()
+        self.dataloader = DataLoader(EEGDataset(self.data), batch_size=batch_size, shuffle=False)
     
+    def window_slicing(self, arr):
+        shape = arr.shape
+        n_windows = int(shape[-1] // self.window_len)
+
+        out = np.stack([arr[:,:,i*self.window_len:(i+1)*self.window_len] for i in range(n_windows)], 1)
+        return np.concatenate(out)
 
 if __name__ == "__main__":
-    dataset = Transfer_DataModule(stress=True,
-                                  emotion=True,
-                                  nback=True,
-                                  d2=True,
-                                  chan_mode=1,
-                                  batch_size=16)
-    print(dataset.batch_size)
+    # dataset = Transfer_DataModule(stress=True,
+    #                               emotion=True,
+    #                               nback=True,
+    #                               d2=True,
+    #                               chan_mode=1,
+    #                               batch_size=16)
+    dataset = Transfer_DataModule_2('D:\One_한양대학교\private object minsu\coding\data\samsung_2024',
+                                    stress=True,
+                                    emotion=True,
+                                    d2=True,
+                                    chan_mode=1,
+                                    window_len=5,
+                                    batch_size=16)
+    print(dataset.data.shape)

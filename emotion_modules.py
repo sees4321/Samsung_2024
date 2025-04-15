@@ -36,16 +36,21 @@ class Emotion_DataModule():
                  ):
         super().__init__()
 
+        self.data_npz = np.load(os.path.join(path, 'emotion.npz'))
         # load original data + label
-        self.data = np.load(os.path.join(path, 'emotion_data.npy'))/1000 # (32, 9, 8, 15000) 
+        # self.data = np.load(os.path.join(path, 'emotion_data.npy'))/1000 # (32, 9, 8, 15000)
+        self.data = self.data_npz['eeg'] 
         if label_mode == 0:
-            self.label = np.load(os.path.join(path, 'emotion_label.npy')) # (32, 9, 2)
+            # self.label = np.load(os.path.join(path, 'emotion_label.npy')) # (32, 9, 2)
+            self.label = self.data_npz['label_rating']
             self.label = np.array(self.label[:, 1:, label_type] > 2, int) # (32, 8)
         elif label_mode == 2: # 3 class
-            self.label = np.load(os.path.join(path, 'emotion_label.npy')) # (32, 9, 2)
+            # self.label = np.load(os.path.join(path, 'emotion_label.npy')) # (32, 9, 2)
+            self.label = self.data_npz['label_rating']
             self.label = np.array(self.label[:, 1:, label_type] > 2, int) + np.array(self.label[:, 1:, label_type] > 3, int)
         else:
-            self.label = np.load(os.path.join(path, 'emotion_label2.npy'))[:, 1:] # (32, 9)
+            # self.label = np.load(os.path.join(path, 'emotion_label2.npy'))[:, 1:] # (32, 9)
+            self.label = self.data_npz['label_target']
             if label_type == 0: # arousal
                 self.label[self.label == 1.0] = 1
                 self.label[self.label == 2.0] = 0
@@ -64,7 +69,7 @@ class Emotion_DataModule():
         # channel selection & sampling
         fs = 125
         channel_selection = [[0,8], [0,3], [3,6], [6,8]]
-        self.data = self.data[:, 1:, 
+        self.data = self.data[:, :, 
                               channel_selection[channel_mode][0]:channel_selection[channel_mode][1],
                               self.data.shape[3]//2 if sample_half else 0:] # (32, 8, 8, samples)
 

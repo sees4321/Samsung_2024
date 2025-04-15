@@ -135,3 +135,40 @@ def train_aekl(model:nn.Module,
     if not early_stopped:
         torch.save(model.state_dict(), f'best_model.pth')
     return tr_loss, vl_loss
+
+def train_aekl2(model:nn.Module,
+                train_loader:DataLoader,
+                num_epoch:int, 
+                optimizer_name:str,
+                learning_rate:str, 
+                criterion_mode:int = 0,
+                w_kl:float = 1e-4,
+                w_sp:float = 1e-9):
+
+    criterion = nn.L1Loss() if criterion_mode else nn.MSELoss()
+    loss_spec = JukeboxLoss(1)
+    optimizer = OPT_DICT[optimizer_name](model.parameters(), lr=float(learning_rate))
+    early_stopped = False
+    tr_loss = []
+    vl_loss = []
+    # for epoch in tqdm(range(num_epoch), ncols=150):
+    for epoch in range(num_epoch):
+        model.train()
+        total_loss = 0
+        for batch in train_loader:
+            batch = batch.to(DEVICE)
+            optimizer.zero_grad()
+
+            recon, mu, sigma = model(batch)
+            loss_recon = criterion(recon, batch)
+            loss_kl = 0.5 * torch.sum(mu.pow(2) + sigma.pow(2) - torch.log(sigma.pow(2)) - 1, dim=[1])
+            loss_kl = torch.sum(loss_kl) / loss_kl.shape[0]
+            loss_g = loss_recon + loss_kl * w_kl + loss_spec(recon, batch) * w_sp
+            loss_g.backward()
+            optimizer.step()
+            total_loss += loss_g.item()
+        # tr_loss.append(loss_g.item())
+        print(f"Epoch [{epoch+1}/{num_epoch}], Loss: {total_loss/len(train_loader):.6f}")
+        
+    torch.save(model.state_dict(), f'best_model.pth')
+    return tr_loss, vl_loss

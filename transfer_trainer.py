@@ -143,7 +143,7 @@ def train_aekl2(model:nn.Module,
                 learning_rate:str, 
                 criterion_mode:int = 0,
                 w_kl:float = 1e-4,
-                w_sp:float = 1e-9):
+                w_sp:float = 1e-8):
 
     criterion = nn.L1Loss() if criterion_mode else nn.MSELoss()
     loss_spec = JukeboxLoss(1)
@@ -170,5 +170,6 @@ def train_aekl2(model:nn.Module,
         # tr_loss.append(loss_g.item())
         print(f"Epoch [{epoch+1}/{num_epoch}], Loss: {total_loss/len(train_loader):.6f}")
         
-    torch.save(model.state_dict(), f'best_model.pth')
+        if epoch%100 == 0:
+            torch.save(model.state_dict(), f'best_model{epoch}.pth')
     return tr_loss, vl_loss

@@ -28,7 +28,6 @@ class Emotion_DataModule():
                  sample_half:bool = True,
                  channel_mode:int = 0,
                  window_len:int = 60,
-                 overlap_len:int = 0,
                  num_val:int = 2,
                  batch_size:int = 16,
                  transform = None,
@@ -50,7 +49,7 @@ class Emotion_DataModule():
             self.label = np.array(self.label[:, 1:, label_type] > 2, int) + np.array(self.label[:, 1:, label_type] > 3, int)
         else:
             # self.label = np.load(os.path.join(path, 'emotion_label2.npy'))[:, 1:] # (32, 9)
-            self.label = self.data_npz['label_target']
+            self.label = self.data_npz['label_target'][:,1:]
             if label_type == 0: # arousal
                 self.label[self.label == 1.0] = 1
                 self.label[self.label == 2.0] = 0
@@ -76,7 +75,7 @@ class Emotion_DataModule():
         # epoching
         if window_len < 60:
             new_dat = []
-            for i in range(0, self.data.shape[3] - window_len*fs, (window_len - overlap_len)*fs):
+            for i in range(0, self.data.shape[3] - window_len*fs + 1, window_len*fs):
                 new_dat.append(self.data[:,:,:,i:i+window_len*fs])
             self.data = np.stack(new_dat, 1)
             self.data = np.swapaxes(self.data, 0, 2)
@@ -275,14 +274,13 @@ class Emotion_DataModule_Unsupervised():
         label_torch2 = torch.from_numpy(np.concatenate(self.label2[val_subjects])).long()
         self.val_loader = DataLoader(CustomDataSet2(data_torch, label_torch, label_torch2), batch_size, shuffle=True)
 
-def __main__():
+if __name__ ==  "__main__":
     emotion_dataset = Emotion_DataModule('D:\One_한양대학교\private object minsu\coding\data\samsung_2024\emotion',
                                         label_mode=0, 
                                         label_type=0, 
                                         test_subj=0, 
                                         channel_mode=1, 
-                                        window_len=2, 
-                                        overlap_len=1,
+                                        window_len=10, 
                                         batch_size=16)
 
     test_loader = emotion_dataset.test_loader

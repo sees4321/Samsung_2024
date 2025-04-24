@@ -14,9 +14,9 @@ ManualSeed(222)
 
 def train(chan_mode):
     fs = 125
-    learning_rate = 1e-3
+    learning_rate = 1e-4
     num_batch = 64
-    num_epochs = 1000
+    num_epochs = 500
     time = datetime.datetime.now().strftime('%m%d_%H%M')
     
     # data_module = Transfer_DataModule(stress=True,
@@ -30,7 +30,7 @@ def train(chan_mode):
                                     emotion=False,
                                     d2=True,
                                     chan_mode=chan_mode,
-                                    window_len=5,
+                                    window_len=10,
                                     batch_size=num_batch)
 
     # model = TransformerAutoencoder(input_dim=num_chan[chan_mode], 

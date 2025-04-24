@@ -7,7 +7,7 @@ from transfer_trainer import *
 from emotion_modules import Emotion_DataModule
 from emotion_trainer import train_bin_cls, test_bin_cls
 from models.autoencoder_transformer import TransformerAutoencoder, AutoencoderClassifier
-from models.autoencoder_kl import AutoencoderKL, AutoencoderClassifierKL
+from models.autoencoder_kl import AutoencoderKL, AutoencoderClassifierKL, AutoencoderClassifierKL2, AutoencoderClassifierKL3
 from torchmetrics.classification import BinaryConfusionMatrix
 from utils import *
 
@@ -19,8 +19,8 @@ def train(typ, chan_mode):
     # h = h > 1
     # num_subj = sum(h)
     num_subj = 32
-    learning_rate = 1e-3
-    num_batch = 32
+    learning_rate = 5e-4
+    num_batch = 16
     num_epochs = 50
     min_epochs = 15
     num_chan = [8,3,3,2]
@@ -43,9 +43,8 @@ def train(typ, chan_mode):
                                             test_subj=subj, 
                                             sample_half=True,
                                             channel_mode=chan_mode,
-                                            window_len=60,
-                                            overlap_len=0,
-                                            num_val=2,
+                                            window_len=10,
+                                            num_val=0,
                                             batch_size=num_batch,
                                             transform=None,
                                             subj_selection=None)
@@ -58,21 +57,23 @@ def train(typ, chan_mode):
         #                                 patch_size=25, 
         #                                 num_heads=4,
         #                                 num_layers=3).to(DEVICE)
-        model_ae = AutoencoderKL(16, 2, 32, 4, 8).to(DEVICE)
-        model_ae.load_state_dict(torch.load('aekl500.pth'))
+        # model_ae = AutoencoderKL(16, 2, 32, 4, 8).to(DEVICE)
+        model_ae = AutoencoderKL(128, 2, 32, 16, 8).to(DEVICE)
+        model_ae.load_state_dict(torch.load('aekl_10_100.pth'))
         # model = AutoencoderClassifier(model_ae, 7500, 500, 25, 1).to(DEVICE)
-        model = AutoencoderClassifierKL(model_ae, 7500, 16, 4, 1).to(DEVICE)
+        model = AutoencoderClassifierKL3(model_ae, 1250, 128, 4, 1).to(DEVICE)
         for name, param in model.named_parameters():
-            if name[:2] == 'ae': param.requires_grad = False
+            if name[:2] == 'ae': 
+                param.requires_grad = False
 
-        es = EarlyStopping(model, patience=10, mode='min')
+        # es = EarlyStopping(model, patience=10, mode='min')
         train_acc, train_loss, val_acc, val_loss = train_bin_cls(model, 
                                                                 train_loader=train_loader, 
                                                                 val_loader=val_loader,
                                                                 num_epoch=num_epochs, 
                                                                 optimizer_name='Adam',
                                                                 learning_rate=str(learning_rate),
-                                                                early_stop=es,
+                                                                early_stop=None,
                                                                 min_epoch=min_epochs)
         tr_acc.append(train_acc)
         tr_loss.append(train_loss)
@@ -89,8 +90,8 @@ def train(typ, chan_mode):
         ts_spc.append(cf[0,0]/(cf[0,0]+cf[0,1]))
         # ts_acc.append(val_acc[-1])
         # ts_acc[subj], preds[subj], targets[subj] = DoTest_bin(model, tst_loader=test_loader)
-        # print(f'[{subj:0>2}] acc: {test_acc} %, training acc: {train_acc[-1]:.2f} %, training loss: {train_loss[-1]:.3f}')
-        print(f'[{subj:0>2}] acc: {test_acc} %, training acc: {train_acc[es.epoch]:.2f} %, training loss: {train_loss[es.epoch]:.3f}, val acc: {val_acc[es.epoch]:.2f} %, val loss: {val_loss[es.epoch]:.3f}, es: {es.epoch}')
+        print(f'[{subj:0>2}] acc: {test_acc} %, sen: {ts_sen[-1]*100:.2f}, spc: {ts_spc[-1]*100:.2f}, training acc: {train_acc[-1]:.2f} %, training loss: {train_loss[-1]:.3f}')
+        # print(f'[{subj:0>2}] acc: {test_acc} %, training acc: {train_acc[es.epoch]:.2f} %, training loss: {train_loss[es.epoch]:.3f}, val acc: {val_acc[es.epoch]:.2f} %, val loss: {val_loss[es.epoch]:.3f}, es: {es.epoch}')
 
     # print(f'avg Acc: {np.mean(ts_acc)} %')
     print(f'avg Acc: {np.mean(ts_acc):.2f} %, std: {np.std(ts_acc):.2f}, sen: {np.mean(ts_sen)*100:.2f}, spc: {np.mean(ts_spc)*100:.2f}')

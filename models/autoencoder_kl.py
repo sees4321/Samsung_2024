@@ -27,7 +27,7 @@ class Upsample(nn.Module):
         # print(f'Before: {x.shape}')
         x = self.conv(x)
         if self.pad:
-            x = F.pad(x, (0,1), mode='replicate')
+            x = F.pad(x, (1,1), mode='replicate')
         # print(f'After: {x.shape}')
         return x
 
@@ -328,7 +328,62 @@ class AutoencoderClassifierKL(nn.Module):
         x = x.flatten(1)
         x = self.block_cls(x)
         return x
-    
+
+class AutoencoderClassifierKL2(nn.Module):
+    def __init__(self, autoencoder, input_len, emb_dim, patch_size, n_classes=1):
+        super().__init__()
+        self.ae_model = autoencoder
+
+        self.block_cls = nn.Sequential(
+            nn.Linear(256*emb_dim//2, 1024),
+            # nn.ELU(),
+            nn.Linear(1024, n_classes),
+            nn.Sigmoid() if n_classes == 1 else nn.LogSoftmax()
+        )
+        self.emb = nn.Linear(input_len//patch_size, 256)
+        self.lstm = nn.LSTM(emb_dim, emb_dim//2, 2, batch_first=True)
+
+    def forward(self, x:torch.Tensor):
+        _, x, _ = self.ae_model(x)
+        x = self.emb(x)
+        x, (h_n, c_n) = self.lstm(x.transpose(1,2))
+        x = x.flatten(1)
+        x = self.block_cls(x)
+        return x
+
+class AutoencoderClassifierKL3(nn.Module):
+    def __init__(self, autoencoder, input_len, emb_dim, patch_size, n_classes=1):
+        super().__init__()
+        self.ae_model = autoencoder
+
+        self.block1 = nn.Sequential(
+            nn.Conv1d(emb_dim, emb_dim, 13),
+            nn.GroupNorm(4, emb_dim),
+            nn.ELU(),
+            nn.MaxPool1d(2,2)
+        )
+        self.block2 = nn.Sequential(
+            nn.Conv1d(emb_dim, emb_dim, 13),
+            nn.GroupNorm(4, emb_dim),
+            nn.ELU(),
+            nn.MaxPool1d(2,2)
+        )
+
+        self.dim_feat = ((input_len//patch_size - 12)//2 - 12)//2
+        self.block_cls = nn.Sequential(
+            nn.Linear(self.dim_feat*emb_dim, 128),
+            # nn.ELU(),
+            nn.Linear(128, n_classes),
+            nn.Sigmoid() if n_classes == 1 else nn.LogSoftmax()
+        )
+
+    def forward(self, x:torch.Tensor):
+        _, x, _ = self.ae_model(x)
+        x = self.block1(x)
+        x = self.block2(x)
+        x = x.flatten(1)
+        x = self.block_cls(x)
+        return x
 
 if __name__ == "__main__":
     model = AutoencoderKL(128, 2, 32, 16, 8)
